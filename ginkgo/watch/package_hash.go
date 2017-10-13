@@ -6,30 +6,69 @@ import (
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 var goTestRegExp = regexp.MustCompile(`_test\.go$`)
 
 type PackageHash struct {
-	CodeModifiedTime time.Time
-	TestModifiedTime time.Time
-	Deleted          bool
+	CodeModifiedTime   time.Time
+	TestModifiedTime   time.Time
+	Deleted            bool
+	ChangeNotification <-chan bool
 
 	path        string
 	codeHash    string
 	testHash    string
 	watchRegExp *regexp.Regexp
+	useFSNotify bool
 }
 
-func NewPackageHash(path string, watchRegExp *regexp.Regexp) *PackageHash {
+func NewPackageHash(path string, watchRegExp *regexp.Regexp, useFSNotify bool) *PackageHash {
 	p := &PackageHash{
 		path:        path,
 		watchRegExp: watchRegExp,
+		useFSNotify: useFSNotify,
 	}
 
 	p.codeHash, _, p.testHash, _, p.Deleted = p.computeHashes()
 
+	if useFSNotify {
+		p.ChangeNotification = p.startFSNotify()
+	}
+
 	return p
+}
+
+func (p *PackageHash) startFSNotify() <-chan bool {
+	fsn, err := fsnotify.NewWatcher()
+	if err != nil {
+		panic(err)
+	}
+
+	notifications := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case event := <-fsn.Events:
+				fmt.Println("Watcher notify event:", event)
+				if (event.Op&fsnotify.Write == fsnotify.Write) || (event.Op&fsnotify.Create == fsnotify.Create) || (event.Op&fsnotify.Remove == fsnotify.Remove) || (event.Op&fsnotify.Rename == fsnotify.Rename) {
+					changed := p.CheckForChanges()
+					if changed {
+						notifications <- true
+					}
+				}
+			case err := <-fsn.Errors:
+				fmt.Println("Watcher error:", err)
+				return
+			}
+		}
+	}()
+
+	fsn.Add(p.path)
+	return notifications
 }
 
 func (p *PackageHash) CheckForChanges() bool {

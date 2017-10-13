@@ -44,7 +44,7 @@ func (p *PackageHashes) Add(path string) *PackageHash {
 	path, _ = filepath.Abs(path)
 	_, ok := p.PackageHashes[path]
 	if !ok {
-		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp)
+		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, true)
 	}
 
 	if p.usedPaths != nil {
