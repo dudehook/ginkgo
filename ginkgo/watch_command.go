@@ -91,11 +91,25 @@ func (w *SpecWatcher) WatchSuites(args []string, additionalArgs []string) {
 		runners[0].CleanUp()
 	}
 
-	ticker := time.NewTicker(time.Second)
+	signal := make(chan bool)
+	if w.commandFlags.UseFSNotify {
 
+	} else {
+		ticker := time.NewTicker(time.Second)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					signal <- true
+				}
+			}
+		}()
+	}
+
+	// Main Watch loop
 	for {
 		select {
-		case <-ticker.C:
+		case <-signal:
 			suites, _ := findSuites(args, w.commandFlags.Recurse, w.commandFlags.SkipPackage, false)
 			delta, _ := deltaTracker.Delta(suites)
 			coloredStream := colorable.NewColorableStdout()

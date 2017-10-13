@@ -17,11 +17,11 @@ type DeltaTracker struct {
 	packageHashes *PackageHashes
 }
 
-func NewDeltaTracker(maxDepth int, watchRegExp *regexp.Regexp) *DeltaTracker {
+func NewDeltaTracker(maxDepth int, watchRegExp *regexp.Regexp, useFSNotify bool) *DeltaTracker {
 	return &DeltaTracker{
 		maxDepth:      maxDepth,
 		watchRegExp:   watchRegExp,
-		packageHashes: NewPackageHashes(watchRegExp),
+		packageHashes: NewPackageHashes(watchRegExp, useFSNotify),
 		suites:        map[string]*Suite{},
 	}
 }

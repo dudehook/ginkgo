@@ -11,14 +11,16 @@ type PackageHashes struct {
 	usedPaths     map[string]bool
 	watchRegExp   *regexp.Regexp
 	lock          *sync.Mutex
+	useFSNotify   bool
 }
 
-func NewPackageHashes(watchRegExp *regexp.Regexp) *PackageHashes {
+func NewPackageHashes(watchRegExp *regexp.Regexp, useFSNotify bool) *PackageHashes {
 	return &PackageHashes{
 		PackageHashes: map[string]*PackageHash{},
 		usedPaths:     nil,
 		watchRegExp:   watchRegExp,
 		lock:          &sync.Mutex{},
+		useFSNotify:   useFSNotify,
 	}
 }
 
@@ -44,7 +46,7 @@ func (p *PackageHashes) Add(path string) *PackageHash {
 	path, _ = filepath.Abs(path)
 	_, ok := p.PackageHashes[path]
 	if !ok {
-		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, true)
+		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, p.useFSNotify)
 	}
 
 	if p.usedPaths != nil {

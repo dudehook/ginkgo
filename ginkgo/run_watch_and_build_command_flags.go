@@ -31,6 +31,7 @@ type RunWatchAndBuildCommandFlags struct {
 	//only for watch command
 	Depth       int
 	WatchRegExp string
+	UseFSNotify bool
 
 	FlagSet *flag.FlagSet
 }
@@ -163,5 +164,6 @@ func (c *RunWatchAndBuildCommandFlags) flags(mode int) {
 	if mode == watchMode {
 		c.FlagSet.IntVar(&(c.Depth), "depth", 1, "Ginkgo will watch dependencies down to this depth in the dependency tree")
 		c.FlagSet.StringVar(&(c.WatchRegExp), "watchRegExp", `\.go$`, "Files matching this regular expression will be watched for changes")
+		c.FlagSet.BoolVar(&(c.UseFSNotify), "usefsnotify", false, "Use file system change notifications instead of polling for changes")
 	}
 }
