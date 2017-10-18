@@ -16,38 +16,40 @@ type PackageHash struct {
 	CodeModifiedTime   time.Time
 	TestModifiedTime   time.Time
 	Deleted            bool
-	ChangeNotification <-chan bool
+	changeNotification chan bool
 
 	path        string
 	codeHash    string
 	testHash    string
 	watchRegExp *regexp.Regexp
-	useFSNotify bool
+	notifier    *Notifier
 }
 
-func NewPackageHash(path string, watchRegExp *regexp.Regexp, useFSNotify bool) *PackageHash {
+func NewPackageHash(path string, watchRegExp *regexp.Regexp, notifier *Notifier) *PackageHash {
 	p := &PackageHash{
 		path:        path,
 		watchRegExp: watchRegExp,
-		useFSNotify: useFSNotify,
+		notifier:    notifier,
 	}
 
 	p.codeHash, _, p.testHash, _, p.Deleted = p.computeHashes()
 
-	if useFSNotify {
-		p.ChangeNotification = p.startFSNotify()
+	if p.notifier.enabled {
+		p.changeNotification = p.startFSNotify()
+		// send our new channel to the notifier
+		p.notifier.updateChan <- p.changeNotification
 	}
 
 	return p
 }
 
-func (p *PackageHash) startFSNotify() <-chan bool {
+func (p *PackageHash) startFSNotify() chan bool {
 	fsn, err := fsnotify.NewWatcher()
 	if err != nil {
 		panic(err)
 	}
 
-	notifications := make(chan bool)
+	notifications := make(chan bool) // TODO buffered?
 
 	go func() {
 		for {

@@ -11,16 +11,16 @@ type PackageHashes struct {
 	usedPaths     map[string]bool
 	watchRegExp   *regexp.Regexp
 	lock          *sync.Mutex
-	useFSNotify   bool
+	notifier      *Notifier
 }
 
-func NewPackageHashes(watchRegExp *regexp.Regexp, useFSNotify bool) *PackageHashes {
+func NewPackageHashes(watchRegExp *regexp.Regexp, notifier *Notifier) *PackageHashes {
 	return &PackageHashes{
 		PackageHashes: map[string]*PackageHash{},
 		usedPaths:     nil,
 		watchRegExp:   watchRegExp,
 		lock:          &sync.Mutex{},
-		useFSNotify:   useFSNotify,
+		notifier:      notifier,
 	}
 }
 
@@ -46,7 +46,11 @@ func (p *PackageHashes) Add(path string) *PackageHash {
 	path, _ = filepath.Abs(path)
 	_, ok := p.PackageHashes[path]
 	if !ok {
-		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, p.useFSNotify)
+		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, p.notifier)
+		if p.notifier.enabled {
+
+		}
+		// TODO figure out how to get the notification channels percolated up to the top...
 	}
 
 	if p.usedPaths != nil {

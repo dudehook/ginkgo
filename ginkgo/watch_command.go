@@ -73,7 +73,7 @@ func (w *SpecWatcher) WatchSuites(args []string, additionalArgs []string) {
 	}
 
 	fmt.Printf("Identified %d test %s.  Locating dependencies to a depth of %d (this may take a while)...\n", len(suites), pluralizedWord("suite", "suites", len(suites)), w.commandFlags.Depth)
-	deltaTracker := watch.NewDeltaTracker(w.commandFlags.Depth, regexp.MustCompile(w.commandFlags.WatchRegExp))
+	deltaTracker := watch.NewDeltaTracker(w.commandFlags.Depth, regexp.MustCompile(w.commandFlags.WatchRegExp), w.commandFlags.UseFSNotify)
 	delta, errors := deltaTracker.Delta(suites)
 
 	fmt.Printf("Watching %d %s:\n", len(delta.NewSuites), pluralizedWord("suite", "suites", len(delta.NewSuites)))
@@ -92,6 +92,7 @@ func (w *SpecWatcher) WatchSuites(args []string, additionalArgs []string) {
 	}
 
 	signal := make(chan bool)
+
 	if w.commandFlags.UseFSNotify {
 
 	} else {

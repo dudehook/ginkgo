@@ -2,6 +2,7 @@ package watch
 
 import (
 	"fmt"
+	"reflect"
 
 	"regexp"
 
@@ -10,20 +11,59 @@ import (
 
 type SuiteErrors map[testsuite.TestSuite]error
 
+type Notifier struct {
+	enabled    bool
+	updateChan chan (chan bool)
+}
+
 type DeltaTracker struct {
 	maxDepth      int
 	watchRegExp   *regexp.Regexp
 	suites        map[string]*Suite
 	packageHashes *PackageHashes
+
+	ChangeNotification *chan bool
+	cases              []reflect.SelectCase
+	notifier           *Notifier
 }
 
 func NewDeltaTracker(maxDepth int, watchRegExp *regexp.Regexp, useFSNotify bool) *DeltaTracker {
-	return &DeltaTracker{
-		maxDepth:      maxDepth,
-		watchRegExp:   watchRegExp,
-		packageHashes: NewPackageHashes(watchRegExp, useFSNotify),
-		suites:        map[string]*Suite{},
+	dt := &DeltaTracker{
+		maxDepth:           maxDepth,
+		watchRegExp:        watchRegExp,
+		notifier:           &Notifier{enabled: false},
+		suites:             map[string]*Suite{},
+		ChangeNotification: new(chan bool),
 	}
+	if useFSNotify {
+		dt.setupFSNotifications()
+	}
+	dt.packageHashes = NewPackageHashes(dt.watchRegExp, dt.notifier)
+	return dt
+}
+
+func (d *DeltaTracker) setupFSNotifications() {
+
+	d.notifier.updateChan = make(chan (chan bool))
+	d.cases = append(d.cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(d.notifier.updateChan)})
+	d.notifier.enabled = true
+	go func() {
+		for {
+			chosen, value, ok := reflect.Select(d.cases)
+			// A channel closed
+			if !ok {
+				d.cases[chosen].Chan = reflect.ValueOf(nil)
+				continue
+			}
+			// If we get a messaeg on the updateChan, add the value to the select cases
+			if value == reflect.ValueOf(d.notifier.updateChan) {
+				d.cases = append(d.cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: value})
+				continue
+			}
+			// Otherwise we got a file change notification
+			*d.ChangeNotification <- true
+		}
+	}()
 }
 
 func (d *DeltaTracker) Delta(suites []testsuite.TestSuite) (delta Delta, errors SuiteErrors) {
