@@ -46,11 +46,12 @@ func (p *PackageHashes) Add(path string) *PackageHash {
 	path, _ = filepath.Abs(path)
 	_, ok := p.PackageHashes[path]
 	if !ok {
-		p.PackageHashes[path] = NewPackageHash(path, p.watchRegExp, p.notifier)
+		ph := NewPackageHash(path, p.watchRegExp, p.notifier)
+		p.PackageHashes[path] = ph
 		if p.notifier.enabled {
-
+			// TODO figure out how to get the notification channels percolated up to the top...
+			p.notifier.updateChan <- ph.changeNotification
 		}
-		// TODO figure out how to get the notification channels percolated up to the top...
 	}
 
 	if p.usedPaths != nil {

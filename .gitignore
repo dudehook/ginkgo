@@ -5,3 +5,5 @@ tmp/**/*
 .vscode
 .idea/
 ginkgo/ginkgo
+*.swp
+

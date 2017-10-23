@@ -49,16 +49,22 @@ func (p *PackageHash) startFSNotify() chan bool {
 		panic(err)
 	}
 
-	notifications := make(chan bool) // TODO buffered?
+	notifications := make(chan bool, 200)
 
 	go func() {
 		for {
+			fmt.Println("Waiting for change events")
 			select {
 			case event := <-fsn.Events:
 				fmt.Println("Watcher notify event:", event)
+
+				fmt.Println("Watcher notify event op:", event.Op)
+
 				if (event.Op&fsnotify.Write == fsnotify.Write) || (event.Op&fsnotify.Create == fsnotify.Create) || (event.Op&fsnotify.Remove == fsnotify.Remove) || (event.Op&fsnotify.Rename == fsnotify.Rename) {
+					fmt.Println("Checking for changes")
 					changed := p.CheckForChanges()
 					if changed {
+						fmt.Println("Change detected, notifying")
 						notifications <- true
 					}
 				}

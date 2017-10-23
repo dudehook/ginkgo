@@ -22,20 +22,19 @@ type DeltaTracker struct {
 	suites        map[string]*Suite
 	packageHashes *PackageHashes
 
-	ChangeNotification *chan bool
-	cases              []reflect.SelectCase
+	ChangeNotification chan bool
 	notifier           *Notifier
 }
 
 func NewDeltaTracker(maxDepth int, watchRegExp *regexp.Regexp, useFSNotify bool) *DeltaTracker {
 	dt := &DeltaTracker{
-		maxDepth:           maxDepth,
-		watchRegExp:        watchRegExp,
-		notifier:           &Notifier{enabled: false},
-		suites:             map[string]*Suite{},
-		ChangeNotification: new(chan bool),
+		maxDepth:    maxDepth,
+		watchRegExp: watchRegExp,
+		notifier:    &Notifier{enabled: false},
+		suites:      map[string]*Suite{},
 	}
 	if useFSNotify {
+		dt.ChangeNotification = make(chan bool, 600)
 		dt.setupFSNotifications()
 	}
 	dt.packageHashes = NewPackageHashes(dt.watchRegExp, dt.notifier)
@@ -45,23 +44,32 @@ func NewDeltaTracker(maxDepth int, watchRegExp *regexp.Regexp, useFSNotify bool)
 func (d *DeltaTracker) setupFSNotifications() {
 
 	d.notifier.updateChan = make(chan (chan bool))
-	d.cases = append(d.cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(d.notifier.updateChan)})
 	d.notifier.enabled = true
 	go func() {
+		var cases []reflect.SelectCase
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(d.notifier.updateChan)})
 		for {
-			chosen, value, ok := reflect.Select(d.cases)
+			fmt.Println("FSNotification Select...")
+			chosen, value, ok := reflect.Select(cases)
+			fmt.Println("FSNotification got select.")
 			// A channel closed
 			if !ok {
-				d.cases[chosen].Chan = reflect.ValueOf(nil)
+				cases[chosen].Chan = reflect.ValueOf(nil)
+				fmt.Println("  -- channel closed")
 				continue
 			}
 			// If we get a messaeg on the updateChan, add the value to the select cases
-			if value == reflect.ValueOf(d.notifier.updateChan) {
-				d.cases = append(d.cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: value})
+			if chosen == 0 {
+				fmt.Println("  -- update chan event, updating")
+				cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: value})
+				fmt.Println("  -- update chan event, updated chan list")
 				continue
 			}
 			// Otherwise we got a file change notification
-			*d.ChangeNotification <- true
+			fmt.Println("  -- file change notification passthrough")
+			fmt.Println(chosen)
+			fmt.Println(value)
+			d.ChangeNotification <- true
 		}
 	}()
 }

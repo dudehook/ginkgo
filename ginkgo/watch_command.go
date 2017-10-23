@@ -94,7 +94,15 @@ func (w *SpecWatcher) WatchSuites(args []string, additionalArgs []string) {
 	signal := make(chan bool)
 
 	if w.commandFlags.UseFSNotify {
-
+		go func() {
+			for {
+				select {
+				case <-deltaTracker.ChangeNotification:
+					fmt.Println("Got change notificaiton, bounding to main")
+					signal <- true
+				}
+			}
+		}()
 	} else {
 		ticker := time.NewTicker(time.Second)
 		go func() {
@@ -111,6 +119,7 @@ func (w *SpecWatcher) WatchSuites(args []string, additionalArgs []string) {
 	for {
 		select {
 		case <-signal:
+			fmt.Println("Main loop signal")
 			suites, _ := findSuites(args, w.commandFlags.Recurse, w.commandFlags.SkipPackage, false)
 			delta, _ := deltaTracker.Delta(suites)
 			coloredStream := colorable.NewColorableStdout()
